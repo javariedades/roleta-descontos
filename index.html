@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Roleta de Descontos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .form-container, .roleta-container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .form-container.active, .roleta-container.active {
+      display: flex;
+    }
+
+    input {
+      margin: 10px 0;
+      padding: 10px;
+      width: 250px;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .roleta {
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      border: 8px solid #333;
+      background: conic-gradient(
+        #ff9999 0% 16.66%,
+        #99ccff 16.66% 33.33%,
+        #99ff99 33.33% 50%,
+        #ffff99 50% 66.66%,
+        #ffcc99 66.66% 83.33%,
+        #cc99ff 83.33% 100%
+      );
+      transition: transform 4s cubic-bezier(0.33, 1, 0.68, 1);
+      position: relative;
+    }
+
+    .ponteiro {
+      position: absolute;
+      top: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-bottom: 30px solid #000;
+    }
+
+    .resultado {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-container active" id="formContainer">
+    <h2>Cadastre-se para girar a roleta</h2>
+    <input type="text" id="empresa" placeholder="Nome da Empresa" required>
+    <input type="tel" id="telefone" placeholder="(99) 99999-9999" required oninput="formatarTelefone(this)">
+    <button onclick="iniciar()">Continuar</button>
+  </div>
+
+  <div class="roleta-container" id="roletaContainer">
+    <div class="ponteiro"></div>
+    <div class="roleta" id="roleta"></div>
+    <button id="botaoGirar" onclick="girar()">Girar Roleta</button>
+    <div class="resultado" id="resultado"></div>
+  </div>
+
+  <script>
+    const descontos = [1, 2, 3, 4, 5, 10];
+    let anguloAtual = 0;
+    let nomeEmpresa = '';
+    let telefoneEmpresa = '';
+
+    function formatarTelefone(input) {
+      let valor = input.value.replace(/\D/g, "");
+      if (valor.length > 11) valor = valor.slice(0, 11);
+      if (valor.length > 0) valor = '(' + valor;
+      if (valor.length > 3) valor = valor.slice(0, 3) + ') ' + valor.slice(3);
+      if (valor.length > 10) valor = valor.slice(0, 10) + '-' + valor.slice(10);
+      input.value = valor;
+    }
+
+    function iniciar() {
+      const empresa = document.getElementById('empresa').value.trim();
+      const telefone = document.getElementById('telefone').value.trim();
+      const telefoneNumerico = telefone.replace(/\D/g, '');
+
+      if (!empresa || !telefone) {
+        alert("Por favor, preencha todos os campos.");
+        return;
+      }
+
+      if (telefoneNumerico.length !== 11) {
+        alert("O número de telefone deve conter exatamente 11 dígitos, como (67) 99840-1137.");
+        return;
+      }
+
+      const idCadastro = empresa.toLowerCase() + '-' + telefoneNumerico;
+      if (localStorage.getItem(idCadastro)) {
+        alert("Este cadastro já girou a roleta.");
+        return;
+      }
+
+      nomeEmpresa = empresa;
+      telefoneEmpresa = telefoneNumerico;
+
+      document.getElementById('formContainer').classList.remove('active');
+      document.getElementById('roletaContainer').classList.add('active');
+    }
+
+    function girar() {
+      const roleta = document.getElementById('roleta');
+      const resultado = document.getElementById('resultado');
+      const botao = document.getElementById('botaoGirar');
+
+      const indice = Math.floor(Math.random() * descontos.length);
+      const desconto = descontos[indice];
+      const anguloPorSetor = 360 / descontos.length;
+      const anguloDestino = (360 * 5) + (indice * anguloPorSetor) + (anguloPorSetor / 2);
+      anguloAtual += anguloDestino;
+
+      roleta.style.transform = `rotate(${anguloAtual}deg)`;
+      botao.disabled = true;
+      resultado.textContent = '';
+
+      setTimeout(() => {
+        resultado.textContent = `Você ganhou ${desconto}% de desconto!`;
+
+        const idCadastro = nomeEmpresa.toLowerCase() + '-' + telefoneEmpresa;
+        localStorage.setItem(idCadastro, desconto);
+
+        // Envia os dados para o Formspree (substitua pelo seu endpoint)
+        fetch('https://formspree.io/f/xvganqdr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            empresa: nomeEmpresa,
+            telefone: telefoneEmpresa,
+            desconto_ganho: `${desconto}%`
+          })
+        }).then(res => {
+          if (!res.ok) alert("Erro ao enviar dados.");
+        });
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
